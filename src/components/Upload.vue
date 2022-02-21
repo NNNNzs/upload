@@ -7,25 +7,96 @@
       ref="upload"
       :customRequest="customRequest"
       @mouseenter="handleFocus"
+      :file-list-style="{ display: 'none' }"
     >
       <n-button size="large" type="primary">上传文件</n-button>
     </n-upload>
+    <NDrawer v-model:show="showDrawer" :width="500">
+      <n-drawer-content title="最近上传" class="drawer-content">
+        <NList v-if="rencetUploadList.length > 0" bordered :class="{ done }">
+          <NListItem v-for="item in rencetUploadList">
+            <p style="cursor:pointer;float:right" @click="handleRemove(item)">X</p>
+            <p>
+              <span class="title">添加时间:</span>
+              <span class="content">
+                <NTime :time="item.addTime"></NTime>
+              </span>
+            </p>
+            <p>
+              <span class="title">文件名:</span>
+              <span class="content">{{ item.fileName }}</span>
+            </p>
+            <p>
+              <span class="title">文件类型:</span>
+              <span>{{ item.mime }}</span>
+            </p>
+            <p>
+              <span class="title">链接:</span>
+              <span class="content">
+                <a target="_blank" :download="item.fileName" :href="item.url">{{ item.url }}</a>
+              </span>
+            </p>
+            <p>
+              <span class="title">上传时间:</span>
+              <span class="content">
+                <NTime :time="item.finishTime"></NTime>
+              </span>
+            </p>
+          </NListItem>
+        </NList>
+        <NResult v-else status="404" title="404 资源不存在" description="生活总归带点荒谬"></NResult>
+      </n-drawer-content>
+    </NDrawer>
+    <NIcon size="24" @click="showLocal" @mouseenter="showLocal">
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        xmlns:xlink="http://www.w3.org/1999/xlink"
+        viewBox="0 0 24 24"
+      >
+        <path d="M20 11H7.83l5.59-5.59L12 4l-8 8l8 8l1.41-1.41L7.83 13H20v-2z" fill="currentColor" />
+      </svg>
+    </NIcon>
+    <!-- <n-button @click="showLocal">展示</n-button> -->
   </div>
-</template>
-
+</template>,
 <script  lang="ts" setup >
 import axios, { AxiosResponse } from "axios";
-import { defineComponent, ref, onMounted, reactive, onUnmounted, h } from "vue";
+import { defineComponent, ref, Ref, toRef, toRefs, onMounted, reactive, onUnmounted, h } from "vue";
 import {
   NButton,
   NUpload,
+  NDrawer,
+  NTime,
+  NDrawerContent,
+  NList,
+  NResult,
+  NListItem,
+  NIcon,
   UploadCustomRequestOptions,
   useMessage,
   useDialog,
 } from "naive-ui";
+import RecentUpload, { UploadInfo } from '../hooks/RecentUpload'
 
+const recentUpload = new RecentUpload();
+const rencetUploadList: Ref<UploadInfo[]> = recentUpload.list;
+
+const showLocal = () => {
+  showDrawer.value = !showDrawer.value;
+}
+
+const done = ref(false);
+
+const flashCurrent = () => {
+  showLocal();
+  done.value = true;
+  setTimeout(() => {
+    done.value = false;
+  }, 3000);
+}
 
 const msg = useMessage();
+
 // 1. 上传之后 复制上传之后的链接
 // 2. 将外链转换成自己的
 // 3. 大文件分片上传
@@ -38,9 +109,14 @@ const showModal = ref(false);
 const uploadBlob = ref<Blob>();
 const dialog = useDialog();
 const hasDialog = ref(false)
-
+const showDrawer = ref(false);
+/**
+ * 
+ * @param text 
+ * @description 是否允许外链转换功能
+ */
 const canTransForm = (text: string) => {
-  const imgList = ['.png', '.jpg', '.jpeg', '.webp','.gif','.svg'];
+  const imgList = ['.png', '.jpg', '.jpeg', '.webp', '.gif', '.svg'];
   return text.startsWith('http') && !text.includes('static.nnnnzs.cn') && imgList.some(ext => text.includes(ext))
 }
 
@@ -48,6 +124,7 @@ const doCopy = (str: string) => {
   navigator.clipboard.writeText(str).then(() => {
     msg.success('上传成功，成功复制到剪贴板' + str)
     hasDialog.value = false;
+    flashCurrent()
   });
 }
 
@@ -62,7 +139,7 @@ const handleFocus = () => {
             const isImg = type.includes("image");
             const isText = type.includes('text');
             if (isImg) {
-              console.log('isImage');
+              console.log('isImage', blob);
               const src = URL.createObjectURL(blob);
 
               imgSrc.value = src;
@@ -85,7 +162,15 @@ const handleFocus = () => {
                 positiveText: '确定上传',
                 negativeText: '不上传',
                 onPositiveClick: () => {
+                  const addTime = new Date().getTime();
                   handleUpload(blob).then(url => {
+                    recentUpload.add({
+                      addTime,
+                      url,
+                      mime: blob.type,
+                      origin: "剪贴板",
+                      fileName: 'clipboard',
+                    });
                     doCopy(url)
                   })
                 },
@@ -192,6 +277,9 @@ const hanlePaste = (e: any) => {
   }
 };
 
+const handleRemove = (item: UploadInfo) => {
+  recentUpload.remove(item);
+}
 
 onMounted(() => {
   window.addEventListener("focus", handleFocus);
@@ -247,6 +335,8 @@ const customRequest = ({
 }: UploadCustomRequestOptions) => {
   const formData = new FormData();
   formData.append("inputFile", file.file as Blob);
+  const { name, type } = file;
+  const addTime = new Date().getTime();
 
   axios({
     url: baseUrl + "/upload",
@@ -259,6 +349,15 @@ const customRequest = ({
     .then((res) => {
       const { code, data, url } = res.data;
       if (code == 200) {
+        recentUpload.add({
+          addTime,
+          url,
+          mime: type || '',
+          origin: '主动上传',
+          fileName: name,
+        });
+        flashCurrent()
+
         onFinish();
       }
     })
@@ -278,6 +377,8 @@ const doUpload = () => {
       .catch((err) => { });
   }
 };
+
+
 
 /**
  * 
@@ -327,5 +428,27 @@ body {
 .preview {
   border: 1px dashed #bf6464;
   padding: 5px;
+}
+.drawer-content {
+  .title {
+    width: 30px;
+    position: relative;
+    margin-right: 2px;
+  }
+  .content {
+    word-break: break-all;
+  }
+}
+@keyframes flash {
+  from {
+    border: 1px solid blue;
+  }
+  to {
+    border: 1px solid gold;
+  }
+}
+
+.done .n-list-item:first-of-type {
+  animation: flash 1s infinite;
 }
 </style>
