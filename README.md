@@ -15,3 +15,4 @@ Since TypeScript cannot handle type information for `.vue` imports, they are shi
 1. 最近三个上传文件的 url，本地存储 ok
 2. 点击上传的 url 复制功能 notok
 3. 上传进度显示
+4. 大文件切片功能，

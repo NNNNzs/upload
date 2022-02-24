@@ -2,16 +2,20 @@ import { ref, watch, Ref } from "vue";
 interface Opt {
   max: number
 }
-type originType = "剪贴板" | "主动上传"
+type OriginType = "剪贴板" | "主动上传"
+type Status = "上传成功" | "同步中"
 export interface UploadInfo {
   addTime: number | Date
   finishTime: number | Date
   fileName: string
   url: string,
   mime: string,
-  origin: originType
+  status: Status
+  progress?: number
+  origin: OriginType
 }
 
+type PartialKey<T extends Object, K extends keyof T> = (Pick<T, Exclude<keyof T, K>> & Partial<Pick<T, K>>)
 
 export default class RecentUpload {
   private localKey: string
@@ -53,21 +57,22 @@ export default class RecentUpload {
       return []
     }
   }
-
-  add(item: Omit<UploadInfo, "finishTime">) {
+  add(item: PartialKey<UploadInfo, "status" | "finishTime">) {
+    // add(item: Omit<UploadInfo, "finishTime" | "status">) {
     const list = this.list.value;
     if (list.length > this.opt.max) {
       list.pop()
     }
     const uploadInfo: UploadInfo = {
+      status: '上传成功',
+      finishTime: new Date().getTime(),
       ...item,
-      finishTime: new Date().getTime()
     }
     list.unshift(uploadInfo);
   }
   remove(item: UploadInfo) {
     const index = this.list.value.findIndex(e => e === item)
     this.list.value.splice(index, 1)
-
   }
+
 }

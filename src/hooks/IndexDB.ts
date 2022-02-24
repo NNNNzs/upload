@@ -1,0 +1,2 @@
+const indexDB = window.indexedDB;
+

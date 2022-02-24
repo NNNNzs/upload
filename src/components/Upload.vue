@@ -7,10 +7,13 @@
       ref="upload"
       :customRequest="customRequest"
       @mouseenter="handleFocus"
+      :disabled="showLoading"
       :file-list-style="{ display: 'none' }"
     >
-      <n-button size="large" type="primary">上传文件</n-button>
+      <n-button v-if="!showLoading" size="large" type="primary">上传</n-button>
+      <NProgress v-else type="circle" :percentage="uploadText"></NProgress>
     </n-upload>
+
     <NDrawer v-model:show="showDrawer" :width="500">
       <n-drawer-content title="最近上传" class="drawer-content">
         <NList v-if="rencetUploadList.length > 0" bordered :class="{ done }">
@@ -37,6 +40,11 @@
               </span>
             </p>
             <p>
+              <span class="title">状态:</span>
+              <span class="content">{{ item.status }}</span>
+              <span v-if="item.status === '同步中'" class="content" @click="fileExis(item)">检查</span>
+            </p>
+            <p>
               <span class="title">上传时间:</span>
               <span class="content">
                 <NTime :time="item.finishTime"></NTime>
@@ -56,7 +64,6 @@
         <path d="M20 11H7.83l5.59-5.59L12 4l-8 8l8 8l1.41-1.41L7.83 13H20v-2z" fill="currentColor" />
       </svg>
     </NIcon>
-    <!-- <n-button @click="showLocal">展示</n-button> -->
   </div>
 </template>,
 <script  lang="ts" setup >
@@ -68,10 +75,12 @@ import {
   NDrawer,
   NTime,
   NDrawerContent,
+  NProgress,
   NList,
   NResult,
   NListItem,
   NIcon,
+  NSpin,
   UploadCustomRequestOptions,
   useMessage,
   useDialog,
@@ -80,6 +89,10 @@ import RecentUpload, { UploadInfo } from '../hooks/RecentUpload'
 
 const recentUpload = new RecentUpload();
 const rencetUploadList: Ref<UploadInfo[]> = recentUpload.list;
+
+// 每个文件切片大小定为10MB;
+const bytesPerPiece: number = 10 * 1024 * 1024;
+
 
 const showLocal = () => {
   showDrawer.value = !showDrawer.value;
@@ -105,11 +118,12 @@ const msg = useMessage();
 
 const base64 = ref<string | null>("");
 const imgSrc = ref();
-const showModal = ref(false);
 const uploadBlob = ref<Blob>();
 const dialog = useDialog();
 const hasDialog = ref(false)
 const showDrawer = ref(false);
+const showLoading = ref(false);
+const uploadText = ref<number>(0);
 /**
  * 
  * @param text 
@@ -125,7 +139,10 @@ const doCopy = (str: string) => {
     msg.success('上传成功，成功复制到剪贴板' + str)
     hasDialog.value = false;
     flashCurrent()
-  });
+  }).catch(()=>{
+    hasDialog.value = false;
+    flashCurrent()
+  })
 }
 
 const handleFocus = () => {
@@ -336,17 +353,28 @@ const customRequest = ({
   const formData = new FormData();
   formData.append("inputFile", file.file as Blob);
   const { name, type } = file;
-  const addTime = new Date().getTime();
+  if (file.file && file.file.size > bytesPerPiece) {
+    splitFile(file.file);
+    return false;
+  }
 
+  // return false;
+  const addTime = new Date().getTime();
+  showLoading.value = true;
   axios({
     url: baseUrl + "/upload",
     method: "post",
     data: formData,
     onUploadProgress: ({ loaded, total }) => {
-      onProgress({ percent: Math.ceil((loaded / total) * 100) });
+      uploadText.value = Math.ceil((loaded / total) * 100);
+      console.log({ percent: Math.ceil((loaded / total) * 100) })
+      // onProgress({ percent: Math.ceil((loaded / total) * 100) });
     },
   })
     .then((res) => {
+      showLoading.value = false;
+      uploadText.value = 0
+
       const { code, data, url } = res.data;
       if (code == 200) {
         recentUpload.add({
@@ -356,7 +384,8 @@ const customRequest = ({
           origin: '主动上传',
           fileName: name,
         });
-        flashCurrent()
+        doCopy(url)
+        // flashCurrent()
 
         onFinish();
       }
@@ -378,6 +407,57 @@ const doUpload = () => {
   }
 };
 
+// 文件切片
+const splitFile = async (file: File) => {
+  const { size, name, type } = file;
+  // 分片上传
+  let index = 0;
+  // 总共多少个分片
+  const totalPieces = Math.ceil(size / bytesPerPiece);
+  const addTime = new Date().getTime()
+
+  while (index < totalPieces) {
+    const start = index * bytesPerPiece;
+    let end = start + bytesPerPiece;
+    if (end > size) {
+      end = size
+    }
+    const chunk = file.slice(start, end);//切割文件
+    const sliceIndex = `${name}.${index}`;
+    const formData = new FormData();
+
+    formData.append("chunk", chunk)
+    formData.append("fileName", name)
+    formData.append("chunkName", sliceIndex);
+    await axios({
+      url: baseUrl + "/uploadChunk",
+      method: "post",
+      data: formData
+    })
+    index++
+  }
+
+  axios({
+    url: baseUrl + "/joinChunk",
+    method: 'post',
+    data: { fileName: name }
+  }).then(res => {
+    recentUpload.add({
+      addTime,
+      mime: type,
+      fileName: name,
+      url: res.data.url,
+      status: '同步中',
+      origin: '主动上传',
+    })
+    msg.success(res.data.msg);
+    // console.log('joinChunk', res.data)
+  })
+
+  console.log('上传完成')
+
+}
+
 
 
 /**
@@ -398,6 +478,18 @@ const transformImage = (url: string) => {
         resolve(res.data.url)
       }
     })
+  })
+}
+
+const fileExis = (item: UploadInfo) => {
+  axios({
+    url: baseUrl + '/isExis',
+    method: 'get',
+    params: { url: item.url }
+  }).then(res => {
+    if (res.data.data) {
+      item.status = "上传成功";
+    }
   })
 }
 
