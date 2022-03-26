@@ -3,7 +3,7 @@ interface Opt {
   max: number
 }
 type OriginType = "剪贴板" | "主动上传"
-type Status = "上传成功" | "同步中"
+type Status = "上传成功" | "同步中" | "上传中"
 export interface UploadInfo {
   addTime: number | Date
   finishTime: number | Date
@@ -11,7 +11,7 @@ export interface UploadInfo {
   url: string,
   mime: string,
   status: Status
-  progress?: number
+  progress?: number | string
   origin: OriginType
 }
 
@@ -21,7 +21,7 @@ export default class RecentUpload {
   private localKey: string
   private opt: Opt
   // private request: IDBOpenDBRequest
-  public list: Ref<Array<UploadInfo>>
+  public list: Ref<UploadInfo[]>
   constructor(key = "_rencet", opt = { max: 10 }) {
     this.localKey = key
     this.opt = opt;
@@ -73,6 +73,17 @@ export default class RecentUpload {
   remove(item: UploadInfo) {
     const index = this.list.value.findIndex(e => e === item)
     this.list.value.splice(index, 1)
+  }
+  getItem(fileName: string) {
+    return this.list.value.find(f => f.fileName === fileName)
+  }
+  setValue(fileName: string, key: keyof UploadInfo, value: any) {
+    const index = this.list.value.findIndex(f => f.fileName === fileName)
+    // this.list.value[index][key] = value;
+  }
+  editItem(fileName: string, newData: UploadInfo) {
+    const index = this.list.value.findIndex(f => f.fileName === fileName)
+    this.list.value[index] = newData;
   }
 
 }

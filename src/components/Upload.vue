@@ -13,6 +13,8 @@
       <n-button v-if="!showLoading" size="large" type="primary">上传</n-button>
       <NProgress v-else type="circle" :percentage="uploadText"></NProgress>
     </n-upload>
+    <n-button @click="listAll" type="primary">完成</n-button>
+    <n-button @click="myIndexDB.clearAll" type="primary">清空</n-button>
 
     <NDrawer v-model:show="showDrawer" :width="500">
       <n-drawer-content title="最近上传" class="drawer-content">
@@ -43,6 +45,10 @@
               <span class="title">状态:</span>
               <span class="content">{{ item.status }}</span>
               <span v-if="item.status === '同步中'" class="content" @click="fileExis(item)">检查</span>
+            </p>
+            <p v-if="item.status === '上传中'">
+              <span class="title">进度:</span>
+              <span class="content">{{ item.progress }}</span>
             </p>
             <p>
               <span class="title">上传时间:</span>
@@ -86,9 +92,11 @@ import {
   useDialog,
 } from "naive-ui";
 import RecentUpload, { UploadInfo } from '../hooks/RecentUpload'
+import MyIndexDB from '../hooks/IndexDB'
 
 const recentUpload = new RecentUpload();
 const rencetUploadList: Ref<UploadInfo[]> = recentUpload.list;
+const myIndexDB = new MyIndexDB('upload')
 
 // 每个文件切片大小定为10MB;
 const bytesPerPiece: number = 10 * 1024 * 1024;
@@ -124,6 +132,7 @@ const hasDialog = ref(false)
 const showDrawer = ref(false);
 const showLoading = ref(false);
 const uploadText = ref<number>(0);
+
 /**
  * 
  * @param text 
@@ -139,7 +148,7 @@ const doCopy = (str: string) => {
     msg.success('上传成功，成功复制到剪贴板' + str)
     hasDialog.value = false;
     flashCurrent()
-  }).catch(()=>{
+  }).catch(() => {
     hasDialog.value = false;
     flashCurrent()
   })
@@ -204,7 +213,7 @@ const handleFocus = () => {
 
               navigator.clipboard.readText().then(text => {
 
-                console.log('isText', text);
+                // console.log('isText', text);
                 if (canTransForm(text)) {
 
                   if (hasDialog.value) {
@@ -407,47 +416,168 @@ const doUpload = () => {
   }
 };
 
-// 文件切片
+const listAll = () => {
+  myIndexDB.listAll(f => {
+    console.log(f)
+  })
+}
+
+interface SaveData {
+  addTime: number;
+  name: string;
+  type: string;
+  blob: Blob
+}
+// 文件切片并且存储到本地
 const splitFile = async (file: File) => {
   const { size, name, type } = file;
   // 分片上传
   let index = 0;
   // 总共多少个分片
   const totalPieces = Math.ceil(size / bytesPerPiece);
-  const addTime = new Date().getTime()
 
-  while (index < totalPieces) {
-    const start = index * bytesPerPiece;
-    let end = start + bytesPerPiece;
-    if (end > size) {
-      end = size
+  console.time(name)
+  const wholeSave = async () => {
+    const blob = new Blob([file], { type });
+    const saveData: SaveData = {
+      addTime: new Date().getTime(),
+      name,
+      type,
+      blob,
     }
-    const chunk = file.slice(start, end);//切割文件
-    const sliceIndex = `${name}.${index}`;
-    const formData = new FormData();
 
-    formData.append("chunk", chunk)
-    formData.append("fileName", name)
-    formData.append("chunkName", sliceIndex);
-    await axios({
-      url: baseUrl + "/uploadChunk",
-      method: "post",
-      data: formData
-    })
-    index++
+    await myIndexDB.insert(`${name}`, saveData);
   }
+
+  const spilitSave = async () => {
+    while (index < totalPieces) {
+      const start = index * bytesPerPiece;
+      let end = start + bytesPerPiece;
+      if (end > size) {
+        end = size
+      }
+      const chunk = file.slice(start, end);//切割文件
+      const chunkName = `${name}.${index}`;
+      try {
+        await myIndexDB.insert(`${chunkName}`, chunk);
+        index++
+      } catch (error) {
+        throw new Error(JSON.stringify(error))
+      }
+    }
+  }
+
+  wholeSave();
+
+  recentUpload.add({
+    addTime: new Date().getTime(),
+    url: '',
+    mime: type,
+    origin: "主动上传",
+    fileName: name,
+    status: '上传中',
+    // progress: `0/${totalPieces}`
+  });
+
+  showDrawer.value = true;
+  uploadFromIndexDB(name)
+}
+
+
+const uploadFromIndexDB = async (fileName: string) => {
+  let mime = ''
+  const wholeGet = async () => {
+    const obj = await myIndexDB.selectAsync(fileName) as { id: string, value: SaveData }
+    const saveData = obj.value;
+    const { name, type, blob, addTime } = saveData;
+    mime = type
+    const file = new File([blob], name, { type });
+    const totalPieces = Math.ceil(file.size / bytesPerPiece);
+    let index = 0;
+
+    while (index < totalPieces) {
+      const start = index * bytesPerPiece;
+      let end = start + bytesPerPiece;
+      if (end > file.size) {
+        end = file.size
+      }
+      const chunk = file.slice(start, end);//切割文件
+      const chunkName = `${fileName}.${index}`;
+      const formData = new FormData();
+      formData.append("chunk", chunk)
+      formData.append("fileName", fileName)
+      formData.append("chunkName", chunkName);
+
+      await axios({
+        url: baseUrl + "/uploadChunk",
+        method: "post",
+        data: formData
+      });
+
+      recentUpload.editItem(fileName, {
+        addTime: addTime,
+        mime: type,
+        fileName: fileName,
+        url: '暂无',
+        status: '上传中',
+        finishTime: new Date().getTime(),
+        origin: '主动上传',
+        progress: `${++index}/${totalPieces}`
+      })
+    }
+    myIndexDB.del(fileName);
+  }
+
+  const splitGet = async () => {
+    const file = recentUpload.getItem(fileName);
+    if (!file) return;
+    let progress: string = file.progress as string;
+    let [current, total] = progress.split('/').map(e => Number(e))
+    mime = file.mime
+    while (current < total) {
+      const chunkName = `${fileName}.${current}`;
+
+      const obj = await myIndexDB.selectAsync(chunkName) as { id: string, value: Blob }
+      const chunk = obj.value;
+      const formData = new FormData();
+      formData.append("chunk", chunk)
+      formData.append("fileName", fileName)
+      formData.append("chunkName", chunkName);
+
+      await axios({
+        url: baseUrl + "/uploadChunk",
+        method: "post",
+        data: formData
+      });
+
+      recentUpload.editItem(fileName, {
+        addTime: file.addTime,
+        mime: file.mime,
+        fileName: fileName,
+        url: '暂无',
+        status: '上传中',
+        finishTime: new Date().getTime(),
+        origin: '主动上传',
+        progress: `${++current}/${total}`
+      })
+      myIndexDB.del(chunkName)
+    }
+  }
+
+  await wholeGet()
 
   axios({
     url: baseUrl + "/joinChunk",
     method: 'post',
-    data: { fileName: name }
+    data: { fileName }
   }).then(res => {
-    recentUpload.add({
-      addTime,
-      mime: type,
-      fileName: name,
+    recentUpload.editItem(fileName, {
+      addTime: new Date().getTime(),
+      mime: mime,
+      fileName: fileName,
       url: res.data.url,
-      status: '同步中',
+      finishTime: new Date().getTime(),
+      status: '上传成功',
       origin: '主动上传',
     })
     msg.success(res.data.msg);
@@ -455,9 +585,7 @@ const splitFile = async (file: File) => {
   })
 
   console.log('上传完成')
-
 }
-
 
 
 /**

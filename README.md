@@ -16,3 +16,5 @@ Since TypeScript cannot handle type information for `.vue` imports, they are shi
 2. 点击上传的 url 复制功能 notok
 3. 上传进度显示
 4. 大文件切片功能，
+5. indexDB 本地存储，切片上传功能
+6. 图片水印
