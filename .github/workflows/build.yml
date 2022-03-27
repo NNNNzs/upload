@@ -18,12 +18,11 @@ jobs:
       - name: Use Node.js
         uses: actions/setup-node@v2
         with:
-          node-version: "14"
+          node-version: "12"
           # cache: 'npm'
           # cache-dependency-path: package-lock.json
-      - run: npm install yarn -g
       - name: install
-        run: yarn install 
+        run: npm install 
       - name: build
         run: npm run build
       - name: deploy
