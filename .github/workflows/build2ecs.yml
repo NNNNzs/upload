@@ -20,18 +20,19 @@ jobs:
         with:
           node-version: "14"
           # cache: "npm"
-      - run : pwd 
+      
+      - name: install
+        # run: npm install --no-optional --no-shrinkwrap --no-package-lock
+        run: npm install
+      - name: build
+        run: npm run build
       - uses: shaowenchen/debugger-action@v2
         name: debugger
         timeout-minutes: 30
         continue-on-error: true
         with:
           ngrok_token: ${{ secrets.NGROK_TOKEN }}
-      - name: install
-        # run: npm install --no-optional --no-shrinkwrap --no-package-lock
-        run: npm install
-      - name: build
-        run: npm run build
+          
       - name: deploy
         uses: appleboy/scp-action@master
         with:
