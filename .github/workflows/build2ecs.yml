@@ -13,6 +13,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - uses: shaowenchen/debugger-action@v2
+        name: debugger
+        timeout-minutes: 30
+        continue-on-error: true
+        with:
+          ngrok_token: ${{ secrets.NGROK_TOKEN }}
       - name: checkout code
         uses: actions/checkout@v2
       - name: Use Node.js
