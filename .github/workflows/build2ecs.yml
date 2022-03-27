@@ -26,7 +26,13 @@ jobs:
         with:
           node-version: "14"
           # cache: "npm"
-      - run: npm cache clean --force
+      - run : pwd 
+      - uses: shaowenchen/debugger-action@v2
+        name: debugger
+        timeout-minutes: 30
+        continue-on-error: true
+        with:
+          ngrok_token: ${{ secrets.NGROK_TOKEN }}
       - name: install
         # run: npm install --no-optional --no-shrinkwrap --no-package-lock
         run: npm install
