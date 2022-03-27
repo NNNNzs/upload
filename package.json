@@ -1,6 +1,6 @@
 {
   "name": "vite-upload",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "author": {
     "name": "NNNNzs",
     "url": "https://github.com/NNNNzs"
@@ -20,8 +20,7 @@
     "axios": "0.25.0",
     "naive-ui": "2.24.1",
     "vue": "3.2.25",
-    "vue-router": "4.0.12",
-    "esbuild": "0.13.15"
+    "vue-router": "4.0.12"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "2.0.0",
