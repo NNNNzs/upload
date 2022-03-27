@@ -31,18 +31,19 @@ jobs:
             ${{ runner.os }}-build-${{ env.cache-name }}-
             ${{ runner.os }}-build-
             ${{ runner.os }}-
-            
+
       - name: install
         # run: npm install --no-optional --no-shrinkwrap --no-package-lock
         run: npm install
       - name: build
         run: npm run build
+        
+      - name: Archive production artifacts
+        uses: actions/upload-artifact@v3
         with:
           name: node_modules
           path: |
             node_modules
-      - name: Archive production artifacts
-        uses: actions/upload-artifact@v3
       - uses: shaowenchen/debugger-action@v2
         name: debugger
         timeout-minutes: 30
