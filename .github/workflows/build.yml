@@ -21,8 +21,8 @@ jobs:
           node-version: "12"
           # cache: 'npm'
           # cache-dependency-path: package-lock.json
-      - name: install
-        run: npm install 
+      - name: install 
+        run: npm install --no-optional --no-shrinkwrap --no-package-lock
       - name: build
         run: npm run build
       - name: deploy
