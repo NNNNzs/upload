@@ -42,7 +42,7 @@ jobs:
           username: ${{ secrets.USERNAME }}
           key: ${{secrets.KEY}}
           port: ${{ secrets.PORT }}
-          source: "dist/"
-          target: "/home/github-action/dist"
+          source: "dist/upload/"
+          target: ${{DIR_PATH}}
       - name: notice
         run: ${{ secrets.NOTICE_BASH }}
