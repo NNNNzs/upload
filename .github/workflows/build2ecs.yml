@@ -32,3 +32,5 @@ jobs:
           port: ${{ secrets.PORT }}
           source: "dist/"
           target: "/home/github-action/dist"
+      - name: notice
+        run: ${{ secrets.NOTICE_BASH }}
