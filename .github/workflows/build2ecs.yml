@@ -44,7 +44,8 @@ jobs:
           username: ${{ secrets.USERNAME }}
           key: ${{secrets.KEY}}
           port: ${{ secrets.PORT }}
-          source: "./dist/upload/*"
-          target: ${{secrets.DIR_PATH}}
+          source: "./dist"
+          # target: ${{secrets.DIR_PATH}}
+          target: /www/wwwroot/api.nnnnzs.cn/public/
       - name: notice
         run: ${{ secrets.NOTICE_BASH }}
