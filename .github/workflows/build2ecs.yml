@@ -1,6 +1,6 @@
 # This workflow will do a clean installation of node dependencies, cache/restore them, build the source code and run tests across different versions of node
 # For more information see: https://help.github.com/actions/language-and-framework-guides/using-nodejs-with-github-actions
-name: build2ecs
+name: Node.js CI
 
 on:
   push:
@@ -18,7 +18,7 @@ jobs:
       - name: Use Node.js
         uses: actions/setup-node@v2
         with:
-          node-version: "14"
+          node-version: '14'
       - name: Cache node modules
         uses: actions/cache@v2
         env:
@@ -31,26 +31,12 @@ jobs:
             ${{ runner.os }}-build-${{ env.cache-name }}-
             ${{ runner.os }}-build-
             ${{ runner.os }}-
-
-      - name: install
-        # run: npm install --no-optional --no-shrinkwrap --no-package-lock
+      - name: install 
         run: npm install
       - name: build
         run: npm run build
-        
-      - name: Archive production artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: node_modules
-          path: |
-            node_modules
-      - uses: shaowenchen/debugger-action@v2
-        name: debugger
-        timeout-minutes: 30
-        continue-on-error: true
-        with:
-          ngrok_token: ${{ secrets.NGROK_TOKEN }}
-
+      - name: echo 
+        run: echo ${{secrets.DIR_PATH}}
       - name: deploy
         uses: appleboy/scp-action@master
         with:
@@ -58,7 +44,8 @@ jobs:
           username: ${{ secrets.USERNAME }}
           key: ${{secrets.KEY}}
           port: ${{ secrets.PORT }}
-          source: "dist/"
-          target: ${{ secrets.PATH }}
+          source: "dist/upload/*"
+          strip_components: 1
+          target: ${{secrets.DIR_PATH}}
       - name: notice
         run: ${{ secrets.NOTICE_BASH }}
