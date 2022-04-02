@@ -14,7 +14,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc --noEmit && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test":"act --secret-file my.secrets"
   },
   "dependencies": {
     "axios": "0.25.0",
