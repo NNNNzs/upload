@@ -14,7 +14,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc --noEmit && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "act --secret-file my.secrets"
   },
   "dependencies": {
     "axios": "0.25.0",
@@ -24,6 +25,7 @@
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "2.0.0",
+    "@vue/babel-plugin-jsx": "^1.1.1",
     "less": "4.1.2",
     "typescript": "4.4.4",
     "vfonts": "0.0.3",

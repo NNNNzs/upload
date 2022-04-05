@@ -13,8 +13,8 @@
       <n-button v-if="!showLoading" size="large" type="primary">上传</n-button>
       <NProgress v-else type="circle" :percentage="uploadText"></NProgress>
     </n-upload>
-    <n-button @click="listAll" type="primary">完成</n-button>
-    <n-button @click="myIndexDB.clearAll" type="primary">清空</n-button>
+    <!-- <n-button @click="listAll" type="primary">完成</n-button> -->
+    <!-- <n-button @click="myIndexDB.clearAll" type="primary">清空</n-button> -->
 
     <NDrawer v-model:show="showDrawer" :width="500">
       <n-drawer-content title="最近上传" class="drawer-content">
@@ -93,6 +93,7 @@ import {
 } from "naive-ui";
 import RecentUpload, { UploadInfo } from '../hooks/RecentUpload'
 import MyIndexDB from '../hooks/IndexDB'
+import { useRoute, useRouter } from "vue-router";
 
 const recentUpload = new RecentUpload();
 const rencetUploadList: Ref<UploadInfo[]> = recentUpload.list;
@@ -415,11 +416,14 @@ const doUpload = () => {
       .catch((err) => { });
   }
 };
-
+const router = useRouter()
+// const route = useRoute()
 const listAll = () => {
-  myIndexDB.listAll(f => {
-    console.log(f)
-  })
+  // console.log(route.query)
+  router.push({ name: 'stList' })
+  // myIndexDB.listAll(f => {
+  //   console.log(f)
+  // })
 }
 
 interface SaveData {
