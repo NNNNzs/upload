@@ -5,21 +5,22 @@ interface Opt {
 type OriginType = "剪贴板" | "主动上传"
 type Status = "上传成功" | "同步中" | "上传中"
 export interface UploadInfo {
-  addTime: number | Date
-  finishTime: number | Date
-  fileName: string
-  url: string,
-  mime: string,
-  status: Status
-  progress?: number | string
-  origin: OriginType
+  addTime: number // 添加时间
+  finishTime: number | Date // 完成时间
+  fileName: string // 文件名
+  url: string, // 上传地址
+  mime: string, // 文件类型
+  alisa: string,//别名
+  status: Status // 上传状态
+  progress?: number | string // 上传进度
+  origin: OriginType // 上传来源
 }
 
 type PartialKey<T extends Object, K extends keyof T> = (Pick<T, Exclude<keyof T, K>> & Partial<Pick<T, K>>)
 
 export default class RecentUpload {
   private localKey: string
-  private opt: Opt
+  private opt: Opt 
   // private request: IDBOpenDBRequest
   public list: Ref<UploadInfo[]>
   constructor(key = "_rencet", opt = { max: 10 }) {

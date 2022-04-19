@@ -1,6 +1,6 @@
 {
   "name": "vite-upload",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "author": {
     "name": "NNNNzs",
     "url": "https://github.com/NNNNzs"
@@ -13,6 +13,7 @@
   ],
   "scripts": {
     "dev": "vite",
+    "ts":"vue-tsc --noEmit",
     "build": "vue-tsc --noEmit && vite build",
     "preview": "vite preview",
     "test": "act --secret-file my.secrets"
@@ -22,6 +23,11 @@
     "naive-ui": "2.24.1",
     "vue": "3.2.25",
     "vue-router": "4.0.12"
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "vue-tsc --noEmit"
+    }
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "2.0.0",

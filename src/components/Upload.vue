@@ -1,4 +1,3 @@
-
 <template>
   <div id="app">
     <n-upload
@@ -19,8 +18,8 @@
     <NDrawer v-model:show="showDrawer" :width="500">
       <n-drawer-content title="最近上传" class="drawer-content">
         <NList v-if="rencetUploadList.length > 0" bordered :class="{ done }">
-          <NListItem v-for="item in rencetUploadList">
-            <p style="cursor:pointer;float:right" @click="handleRemove(item)">X</p>
+          <NListItem v-for="(item, index) in rencetUploadList" :key="item.addTime">
+            <p style="cursor: pointer; float: right" @click="handleRemove(item)">X</p>
             <p>
               <span class="title">添加时间:</span>
               <span class="content">
@@ -31,6 +30,17 @@
               <span class="title">文件名:</span>
               <span class="content">{{ item.fileName }}</span>
             </p>
+            <p @dblclick="handleEditAlisa(item, $event)">
+              <span class="title">别名:</span>
+              <span class="content">
+                <input
+                  v-if="currentEditId === item.addTime"
+                  v-model="currentEdit.alisa"
+                  @keydown.stop="handleAlisaKeydown($event, item, index)"
+                />
+                <span v-else>{{ item.alisa }}</span>
+              </span>
+            </p>
             <p>
               <span class="title">文件类型:</span>
               <span>{{ item.mime }}</span>
@@ -38,13 +48,20 @@
             <p>
               <span class="title">链接:</span>
               <span class="content">
-                <a target="_blank" :download="item.fileName" :href="item.url">{{ item.url }}</a>
+                <a target="_blank" :download="item.fileName" :href="item.url">{{
+                  item.url
+                }}</a>
               </span>
             </p>
             <p>
               <span class="title">状态:</span>
               <span class="content">{{ item.status }}</span>
-              <span v-if="item.status === '同步中'" class="content" @click="fileExis(item)">检查</span>
+              <span
+                v-if="item.status === '同步中'"
+                class="content"
+                @click="fileExis(item)"
+                >检查</span
+              >
             </p>
             <p v-if="item.status === '上传中'">
               <span class="title">进度:</span>
@@ -58,7 +75,12 @@
             </p>
           </NListItem>
         </NList>
-        <NResult v-else status="404" title="404 资源不存在" description="生活总归带点荒谬"></NResult>
+        <NResult
+          v-else
+          status="404"
+          title="404 资源不存在"
+          description="生活总归带点荒谬"
+        ></NResult>
       </n-drawer-content>
     </NDrawer>
     <NIcon size="24" @click="showLocal" @mouseenter="showLocal">
@@ -67,14 +89,28 @@
         xmlns:xlink="http://www.w3.org/1999/xlink"
         viewBox="0 0 24 24"
       >
-        <path d="M20 11H7.83l5.59-5.59L12 4l-8 8l8 8l1.41-1.41L7.83 13H20v-2z" fill="currentColor" />
+        <path
+          d="M20 11H7.83l5.59-5.59L12 4l-8 8l8 8l1.41-1.41L7.83 13H20v-2z"
+          fill="currentColor"
+        />
       </svg>
     </NIcon>
   </div>
-</template>,
-<script  lang="ts" setup >
+</template>
+,
+<script lang="ts" setup>
 import axios, { AxiosResponse } from "axios";
-import { defineComponent, ref, Ref, toRef, toRefs, onMounted, reactive, onUnmounted, h } from "vue";
+import {
+  defineComponent,
+  ref,
+  Ref,
+  toRef,
+  toRefs,
+  onMounted,
+  reactive,
+  onUnmounted,
+  h,
+} from "vue";
 import {
   NButton,
   NUpload,
@@ -91,21 +127,20 @@ import {
   useMessage,
   useDialog,
 } from "naive-ui";
-import RecentUpload, { UploadInfo } from '../hooks/RecentUpload'
-import MyIndexDB from '../hooks/IndexDB'
+import RecentUpload, { UploadInfo } from "../hooks/RecentUpload";
+import MyIndexDB from "../hooks/IndexDB";
 import { useRoute, useRouter } from "vue-router";
 
 const recentUpload = new RecentUpload();
 const rencetUploadList: Ref<UploadInfo[]> = recentUpload.list;
-const myIndexDB = new MyIndexDB('upload')
+const myIndexDB = new MyIndexDB("upload");
 
 // 每个文件切片大小定为10MB;
 const bytesPerPiece: number = 10 * 1024 * 1024;
 
-
 const showLocal = () => {
   showDrawer.value = !showDrawer.value;
-}
+};
 
 const done = ref(false);
 
@@ -115,7 +150,7 @@ const flashCurrent = () => {
   setTimeout(() => {
     done.value = false;
   }, 3000);
-}
+};
 
 const msg = useMessage();
 
@@ -129,31 +164,38 @@ const base64 = ref<string | null>("");
 const imgSrc = ref();
 const uploadBlob = ref<Blob>();
 const dialog = useDialog();
-const hasDialog = ref(false)
+const hasDialog = ref(false);
 const showDrawer = ref(false);
 const showLoading = ref(false);
 const uploadText = ref<number>(0);
 
 /**
- * 
- * @param text 
+ *
+ * @param text
  * @description 是否允许外链转换功能
  */
 const canTransForm = (text: string) => {
-  const imgList = ['.png', '.jpg', '.jpeg', '.webp', '.gif', '.svg'];
-  return text.startsWith('http') && !text.includes('static.nnnnzs.cn') && imgList.some(ext => text.includes(ext))
-}
+  const imgList = [".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg"];
+  return (
+    text.startsWith("http") &&
+    !text.includes("static.nnnnzs.cn") &&
+    imgList.some((ext) => text.includes(ext))
+  );
+};
 
 const doCopy = (str: string) => {
-  navigator.clipboard.writeText(str).then(() => {
-    msg.success('上传成功，成功复制到剪贴板' + str)
-    hasDialog.value = false;
-    flashCurrent()
-  }).catch(() => {
-    hasDialog.value = false;
-    flashCurrent()
-  })
-}
+  navigator.clipboard
+    .writeText(str)
+    .then(() => {
+      msg.success("上传成功，成功复制到剪贴板" + str);
+      hasDialog.value = false;
+      flashCurrent();
+    })
+    .catch(() => {
+      hasDialog.value = false;
+      flashCurrent();
+    });
+};
 
 const handleFocus = () => {
   navigator.clipboard
@@ -161,111 +203,103 @@ const handleFocus = () => {
     .then((clipboardItems) => {
       clipboardItems.forEach((clipboardItem) => {
         for (const type of clipboardItem.types) {
-
           clipboardItem.getType(type).then((blob) => {
             const isImg = type.includes("image");
-            const isText = type.includes('text');
+            const isText = type.includes("text");
             if (isImg) {
-              console.log('isImage', blob);
+              console.log("isImage", blob);
               const src = URL.createObjectURL(blob);
 
               imgSrc.value = src;
 
               if (hasDialog.value) {
-                return false
+                return false;
               }
 
               hasDialog.value = true;
 
               dialog.info({
-                title: '检测到剪贴板有图片，是否上传',
+                title: "检测到剪贴板有图片，是否上传",
                 maskClosable: false,
                 content: () => {
-                  return h('img', {
+                  return h("img", {
                     class: "preview",
-                    src: src
-                  })
+                    src: src,
+                  });
                 },
-                positiveText: '确定上传',
-                negativeText: '不上传',
+                positiveText: "确定上传",
+                negativeText: "不上传",
                 onPositiveClick: () => {
                   const addTime = new Date().getTime();
-                  handleUpload(blob).then(url => {
+                  handleUpload(blob).then((url) => {
                     recentUpload.add({
                       addTime,
+                      alisa: "",
                       url,
                       mime: blob.type,
                       origin: "剪贴板",
-                      fileName: 'clipboard',
+                      fileName: "clipboard",
                     });
-                    doCopy(url)
-                  })
+                    doCopy(url);
+                  });
                 },
                 onClose: () => {
                   hasDialog.value = false;
                 },
                 onNegativeClick: () => {
                   hasDialog.value = false;
-                }
-              })
-
-
+                },
+              });
             } else if (isText) {
-
-              navigator.clipboard.readText().then(text => {
-
+              navigator.clipboard.readText().then((text) => {
                 // console.log('isText', text);
                 if (canTransForm(text)) {
-
                   if (hasDialog.value) {
-                    return false
+                    return false;
                   }
 
                   hasDialog.value = true;
 
                   dialog.info({
-                    title: '检测到剪贴板有图片外链',
+                    title: "检测到剪贴板有图片外链",
                     maskClosable: false,
                     content: () => {
                       // <div>检测到剪贴板的图片外链<a></a>是否上传<div><img src=""> </div>  </.div>
-                      return h('div',
-                        [
-                          `检测到剪贴板的图片外链`,
-                          h('a', {
+                      return h("div", [
+                        `检测到剪贴板的图片外链`,
+                        h(
+                          "a",
+                          {
                             href: text,
-                            target: "_blank"
-                          }, text),
-                          `是否上传？`,
-                          h('div',
-                            [
-                              h('img', {
-                                src: text
-                              })
-                            ]
-                          ),
-                        ]
-                      )
+                            target: "_blank",
+                          },
+                          text
+                        ),
+                        `是否上传？`,
+                        h("div", [
+                          h("img", {
+                            src: text,
+                          }),
+                        ]),
+                      ]);
                     },
-                    positiveText: '确定上传',
-                    negativeText: '不上传',
+                    positiveText: "确定上传",
+                    negativeText: "不上传",
                     onPositiveClick: () => {
-                      transformImage(text).then(res => {
-                        doCopy(res)
-                      })
+                      transformImage(text).then((res) => {
+                        doCopy(res);
+                      });
                     },
                     onClose: () => {
                       hasDialog.value = false;
                     },
                     onNegativeClick: () => {
                       hasDialog.value = false;
-                    }
-                  })
-
+                    },
+                  });
                 }
-              })
-
+              });
             }
-
           });
         }
       });
@@ -306,7 +340,7 @@ const hanlePaste = (e: any) => {
 
 const handleRemove = (item: UploadInfo) => {
   recentUpload.remove(item);
-}
+};
 
 onMounted(() => {
   window.addEventListener("focus", handleFocus);
@@ -318,11 +352,42 @@ onUnmounted(() => {
   window.removeEventListener("paste", hanlePaste);
 });
 
-const baseUrl = import.meta.env.DEV ? '/api' : ''
+let currentEditBak = ref(null);
+const currentEdit = ref<UploadInfo>();
+const currentEditId = ref<number | Date | null>(null);
+
+const handleEditAlisa = (item: UploadInfo, event: MouseEvent) => {
+  console.log("event", event);
+  currentEdit.value = item;
+  currentEditId.value = item.addTime;
+  currentEditBak.value = JSON.parse(JSON.stringify(item));
+};
+
+const handleAlisaKeydown = (event: KeyboardEvent, item: UploadInfo, index: number) => {
+  const { code } = event;
+  // 保存
+  if (code === "Enter") {
+    const { value } = currentEdit;
+    item = JSON.parse(JSON.stringify(value));
+    currentEditId.value = null;
+  }
+  // 退出还原
+  if (code === "Escape") {
+    if (currentEditBak.value) {
+      rencetUploadList.value[index] = currentEditBak.value;
+    }
+    console.log("currentEditBak", currentEditBak.value);
+    currentEditId.value = null;
+    event.preventDefault();
+    event.stopPropagation();
+  }
+};
+
+const baseUrl = import.meta.env.DEV ? "/api" : "";
 
 /**
- * 
- * @param blob 
+ *
+ * @param blob
  * @description 通过后端接口上传的cos
  */
 const handleUpload = (blob: Blob) => {
@@ -334,25 +399,22 @@ const handleUpload = (blob: Blob) => {
       method: "post",
       data: formData,
       onUploadProgress: ({ loaded, total }) => {
-        console.log(loaded, total)
+        console.log(loaded, total);
       },
     })
-      .then(
-        (res: AxiosResponse<{ code: number; data: unknown; url: string }>) => {
-          const { code, data, url } = res.data;
-          if (code == 200) {
-            resolve(url);
-          } else {
-            reject(res);
-          }
+      .then((res: AxiosResponse<{ code: number; data: unknown; url: string }>) => {
+        const { code, data, url } = res.data;
+        if (code == 200) {
+          resolve(url);
+        } else {
+          reject(res);
         }
-      )
+      })
       .catch((err) => {
         reject(err);
       });
   });
 };
-
 
 const customRequest = ({
   file,
@@ -377,24 +439,25 @@ const customRequest = ({
     data: formData,
     onUploadProgress: ({ loaded, total }) => {
       uploadText.value = Math.ceil((loaded / total) * 100);
-      console.log({ percent: Math.ceil((loaded / total) * 100) })
+      console.log({ percent: Math.ceil((loaded / total) * 100) });
       // onProgress({ percent: Math.ceil((loaded / total) * 100) });
     },
   })
     .then((res) => {
       showLoading.value = false;
-      uploadText.value = 0
+      uploadText.value = 0;
 
       const { code, data, url } = res.data;
       if (code == 200) {
         recentUpload.add({
           addTime,
+          alisa: "",
           url,
-          mime: type || '',
-          origin: '主动上传',
+          mime: type || "",
+          origin: "主动上传",
           fileName: name,
         });
-        doCopy(url)
+        doCopy(url);
         // flashCurrent()
 
         onFinish();
@@ -405,32 +468,31 @@ const customRequest = ({
     });
 };
 
-
 const doUpload = () => {
   const blob = uploadBlob.value;
   if (blob) {
     handleUpload(blob)
       .then((res) => {
-        doCopy(res)
+        doCopy(res);
       })
-      .catch((err) => { });
+      .catch((err) => {});
   }
 };
-const router = useRouter()
+const router = useRouter();
 // const route = useRoute()
 const listAll = () => {
   // console.log(route.query)
-  router.push({ name: 'stList' })
+  router.push({ name: "stList" });
   // myIndexDB.listAll(f => {
   //   console.log(f)
   // })
-}
+};
 
 interface SaveData {
   addTime: number;
   name: string;
   type: string;
-  blob: Blob
+  blob: Blob;
 }
 // 文件切片并且存储到本地
 const splitFile = async (file: File) => {
@@ -440,7 +502,7 @@ const splitFile = async (file: File) => {
   // 总共多少个分片
   const totalPieces = Math.ceil(size / bytesPerPiece);
 
-  console.time(name)
+  console.time(name);
   const wholeSave = async () => {
     const blob = new Blob([file], { type });
     const saveData: SaveData = {
@@ -448,53 +510,57 @@ const splitFile = async (file: File) => {
       name,
       type,
       blob,
-    }
+    };
 
     await myIndexDB.insert(`${name}`, saveData);
-  }
+  };
 
   const spilitSave = async () => {
     while (index < totalPieces) {
       const start = index * bytesPerPiece;
       let end = start + bytesPerPiece;
       if (end > size) {
-        end = size
+        end = size;
       }
-      const chunk = file.slice(start, end);//切割文件
+      const chunk = file.slice(start, end); //切割文件
       const chunkName = `${name}.${index}`;
       try {
         await myIndexDB.insert(`${chunkName}`, chunk);
-        index++
+        index++;
       } catch (error) {
-        throw new Error(JSON.stringify(error))
+        throw new Error(JSON.stringify(error));
       }
     }
-  }
+  };
 
   wholeSave();
 
   recentUpload.add({
     addTime: new Date().getTime(),
-    url: '',
+    url: "",
+    alisa: "",
+
     mime: type,
     origin: "主动上传",
     fileName: name,
-    status: '上传中',
+    status: "上传中",
     // progress: `0/${totalPieces}`
   });
 
   showDrawer.value = true;
-  uploadFromIndexDB(name)
-}
-
+  uploadFromIndexDB(name);
+};
 
 const uploadFromIndexDB = async (fileName: string) => {
-  let mime = ''
+  let mime = "";
   const wholeGet = async () => {
-    const obj = await myIndexDB.selectAsync(fileName) as { id: string, value: SaveData }
+    const obj = (await myIndexDB.selectAsync(fileName)) as {
+      id: string;
+      value: SaveData;
+    };
     const saveData = obj.value;
     const { name, type, blob, addTime } = saveData;
-    mime = type
+    mime = type;
     const file = new File([blob], name, { type });
     const totalPieces = Math.ceil(file.size / bytesPerPiece);
     let index = 0;
@@ -503,128 +569,130 @@ const uploadFromIndexDB = async (fileName: string) => {
       const start = index * bytesPerPiece;
       let end = start + bytesPerPiece;
       if (end > file.size) {
-        end = file.size
+        end = file.size;
       }
-      const chunk = file.slice(start, end);//切割文件
+      const chunk = file.slice(start, end); //切割文件
       const chunkName = `${fileName}.${index}`;
       const formData = new FormData();
-      formData.append("chunk", chunk)
-      formData.append("fileName", fileName)
+      formData.append("chunk", chunk);
+      formData.append("fileName", fileName);
       formData.append("chunkName", chunkName);
 
       await axios({
         url: baseUrl + "/uploadChunk",
         method: "post",
-        data: formData
+        data: formData,
       });
 
       recentUpload.editItem(fileName, {
         addTime: addTime,
+        alisa: "",
+
         mime: type,
         fileName: fileName,
-        url: '暂无',
-        status: '上传中',
+        url: "暂无",
+        status: "上传中",
         finishTime: new Date().getTime(),
-        origin: '主动上传',
-        progress: `${++index}/${totalPieces}`
-      })
+        origin: "主动上传",
+        progress: `${++index}/${totalPieces}`,
+      });
     }
     myIndexDB.del(fileName);
-  }
+  };
 
   const splitGet = async () => {
     const file = recentUpload.getItem(fileName);
     if (!file) return;
     let progress: string = file.progress as string;
-    let [current, total] = progress.split('/').map(e => Number(e))
-    mime = file.mime
+    let [current, total] = progress.split("/").map((e) => Number(e));
+    mime = file.mime;
     while (current < total) {
       const chunkName = `${fileName}.${current}`;
 
-      const obj = await myIndexDB.selectAsync(chunkName) as { id: string, value: Blob }
+      const obj = (await myIndexDB.selectAsync(chunkName)) as { id: string; value: Blob };
       const chunk = obj.value;
       const formData = new FormData();
-      formData.append("chunk", chunk)
-      formData.append("fileName", fileName)
+      formData.append("chunk", chunk);
+      formData.append("fileName", fileName);
       formData.append("chunkName", chunkName);
 
       await axios({
         url: baseUrl + "/uploadChunk",
         method: "post",
-        data: formData
+        data: formData,
       });
 
       recentUpload.editItem(fileName, {
         addTime: file.addTime,
         mime: file.mime,
+        alisa: "",
         fileName: fileName,
-        url: '暂无',
-        status: '上传中',
+        url: "暂无",
+        status: "上传中",
         finishTime: new Date().getTime(),
-        origin: '主动上传',
-        progress: `${++current}/${total}`
-      })
-      myIndexDB.del(chunkName)
+        origin: "主动上传",
+        progress: `${++current}/${total}`,
+      });
+      myIndexDB.del(chunkName);
     }
-  }
+  };
 
-  await wholeGet()
+  await wholeGet();
 
   axios({
     url: baseUrl + "/joinChunk",
-    method: 'post',
-    data: { fileName }
-  }).then(res => {
+    method: "post",
+    data: { fileName },
+  }).then((res) => {
     recentUpload.editItem(fileName, {
       addTime: new Date().getTime(),
+      alisa: "",
       mime: mime,
       fileName: fileName,
       url: res.data.url,
       finishTime: new Date().getTime(),
-      status: '上传成功',
-      origin: '主动上传',
-    })
+      status: "上传成功",
+      origin: "主动上传",
+    });
     msg.success(res.data.msg);
     // console.log('joinChunk', res.data)
-  })
+  });
 
-  console.log('上传完成')
-}
-
+  console.log("上传完成");
+};
 
 /**
- * 
+ *
  * @param url url
  * @description 图片转换，通过后端下载图片，上传到cos，再返回给前端
  */
 const transformImage = (url: string) => {
-  return new Promise<string>(resolve => {
+  return new Promise<string>((resolve) => {
     axios({
-      url: baseUrl + '/dupload',
+      url: baseUrl + "/dupload",
       method: "post",
       data: {
         url,
-      }
-    }).then(res => {
+      },
+    }).then((res) => {
       if (res.data) {
-        resolve(res.data.url)
+        resolve(res.data.url);
       }
-    })
-  })
-}
+    });
+  });
+};
 
 const fileExis = (item: UploadInfo) => {
   axios({
-    url: baseUrl + '/isExis',
-    method: 'get',
-    params: { url: item.url }
-  }).then(res => {
+    url: baseUrl + "/isExis",
+    method: "get",
+    params: { url: item.url },
+  }).then((res) => {
     if (res.data.data) {
       item.status = "上传成功";
     }
-  })
-}
-
+  });
+};
 </script>
 
 <style lang="less">
