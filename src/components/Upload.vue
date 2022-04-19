@@ -34,7 +34,7 @@
               <span class="title">别名:</span>
               <span class="content">
                 <input
-                  v-if="currentEditId === item.addTime && currentEdit.alisa"
+                  v-if="currentEditId === item.addTime && currentEdit"
                   v-model="currentEdit.alisa"
                   @keydown.stop="handleAlisaKeydown($event, item, index)"
                 />
