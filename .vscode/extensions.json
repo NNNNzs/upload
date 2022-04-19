@@ -1,3 +1,5 @@
 {
-  "recommendations": []
+  "recommendations": [
+    "johnsoncodehk.vscode-typescript-vue-plugin"
+  ]
 }

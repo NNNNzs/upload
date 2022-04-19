@@ -34,7 +34,7 @@
               <span class="title">别名:</span>
               <span class="content">
                 <input
-                  v-if="currentEditId === item.addTime"
+                  v-if="currentEditId === item.addTime && currentEdit.alisa"
                   v-model="currentEdit.alisa"
                   @keydown.stop="handleAlisaKeydown($event, item, index)"
                 />
@@ -353,12 +353,21 @@ onUnmounted(() => {
 });
 
 let currentEditBak = ref(null);
-const currentEdit = ref<UploadInfo>();
+const currentEdit = ref<UploadInfo>({
+  addTime: 0,
+  finishTime: 0,
+  alisa: "",
+  url: "",
+  mime: "",
+  origin: "剪贴板",
+  status: "上传中",
+  fileName: "",
+});
 const currentEditId = ref<number | Date | null>(null);
 
 const handleEditAlisa = (item: UploadInfo, event: MouseEvent) => {
   console.log("event", event);
-  currentEdit.value = item;
+  currentEdit.value = item as UploadInfo;
   currentEditId.value = item.addTime;
   currentEditBak.value = JSON.parse(JSON.stringify(item));
 };
